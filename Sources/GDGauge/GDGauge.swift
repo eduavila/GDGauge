@@ -76,6 +76,11 @@ public final class GDGaugeView: UIView {
     public var maxValue: CGFloat!
     public var currentValue: CGFloat!
     
+    // MARK: - Marker
+    public var startDegreeMarker: CGFloat!
+    public var endDegreeMarker: CGFloat!
+    public var colorMarker: UIColor!
+    
     override public init(frame: CGRect) {
         super.init(frame: frame)
     }
@@ -95,6 +100,15 @@ public final class GDGaugeView: UIView {
     
     fileprivate var calculatedEndDegree: CGFloat {
         return 270.0 - endDegree + 360
+    }
+    
+    
+    fileprivate var calculatedStartDegreeMarker: CGFloat {
+        return 270.0 - startDegreeMarker
+    }
+    
+    fileprivate var calculatedEndDegreeMarker: CGFloat {
+        return 270.0 - endDegreeMarker + 360
     }
     
     /*******************DEPRECATED*********************************/
@@ -151,8 +165,17 @@ public final class GDGaugeView: UIView {
             unitTitleFont = UIFont.systemFont(ofSize: 16)
         }
         
+        
+        if colorMarker == nil {
+            colorMarker = UIColor.red
+        }
+        
         if showContainerBorder {
             drawContainerShape()
+            
+            if((startDegreeMarker) != nil){
+                drawContainerShapeMarker()
+            }
         }
         drawHandleShape()
         drawIndicators()
@@ -240,6 +263,11 @@ public final class GDGaugeView: UIView {
     public func buildGauge() {
         if showContainerBorder {
             drawContainerShape()
+            
+            
+            if((startDegreeMarker) != nil){
+                drawContainerShapeMarker()
+            }
         }
         drawHandleShape()
         drawIndicators()
@@ -351,6 +379,29 @@ public final class GDGaugeView: UIView {
         layer.addSublayer(containerShape)
     }
     
+    // MARK: - Draw Gauge
+    fileprivate func drawContainerShapeMarker() {
+        
+        let startDegree: CGFloat = 360.0 - calculatedEndDegreeMarker
+        let endDegree: CGFloat = 360.0 - calculatedStartDegreeMarker
+        
+        containerShape = CAShapeLayer()
+        containerShape.fillColor = nil
+        containerShape.strokeColor = colorMarker.cgColor
+        containerShape.lineWidth = containerBorderWidth
+
+        var containerPath: CGPath!
+        containerPath = UIBezierPath(arcCenter: CGPoint(x: frame.width / 2, y: frame.height / 2),
+                                     radius: (frame.width / 3),
+                                     startAngle: degreeToRadian(startDegree),
+                                     endAngle: degreeToRadian(endDegree), clockwise: false).cgPath
+        
+        containerShape?.path = containerPath
+        
+        layer.addSublayer(containerShape)
+    }
+    
+    
     fileprivate func drawHandleShape() {
         handleShape = CAShapeLayer()
         handleShape.fillColor = handleColor.cgColor
@@ -390,8 +441,57 @@ public final class GDGaugeView: UIView {
         handleShape.anchorPoint = centerPoint
         handleShape.path = handlePath.cgPath
         layer.addSublayer(handleShape)
+//
+//        absStartTime = CFAbsoluteTimeGetCurrent()
+//        displayLink = CADisplayLink(target: self, selector: #selector(updateHandle(_:)))
+//        displayLink?.add(to: RunLoop.main, forMode: RunLoop.Mode.common)
+    }
+    
+    
+    
+    fileprivate func drawHandleShape2() {
+        handleShape = CAShapeLayer()
+        handleShape.fillColor = UIColor.red.cgColor
+        
+        let baseDegree = degreeToRadian(newPositionValue)
+        let leftAngle = degreeToRadian(90 + newPositionValue)
+        let rightAngle = degreeToRadian(-90 + newPositionValue)
+        
+        let startVal = frame.width / 4
+        let length = CGFloat(5)
+        let endVal = startVal + length
+        let centerPoint = CGPoint(x: frame.width / 2, y: frame.height / 2)
+        let endPoint = CGPoint(x: cos(-baseDegree) * endVal + centerPoint.x,
+                               y: sin(-baseDegree) * endVal + centerPoint.y)
+        let rightPoint = CGPoint(x: cos(-leftAngle) * CGFloat(15) + centerPoint.x,
+                                 y: sin(-leftAngle) * CGFloat(15) + centerPoint.y)
+        let leftPoint = CGPoint(x: cos(-rightAngle) * CGFloat(15) + centerPoint.x,
+                                y: sin(-rightAngle) * CGFloat(15) + centerPoint.y)
+        
+        let handlePath = UIBezierPath()
+        handlePath.move(to: rightPoint)
+        
+        let midx = rightPoint.x + ((leftPoint.x - rightPoint.x) / 2)
+        let midy = rightPoint.y + ((leftPoint.y - rightPoint.y) / 2)
+        let diffx = midx - rightPoint.x
+        let diffy = midy - rightPoint.y
+        let angle = (atan2(diffy, diffx) * CGFloat((180 / Double.pi))) - 90
+        let targetRad = degreeToRadian(angle)
+        let newX = midx - 20 * cos(targetRad)
+        let newY = midy - 20 * sin(targetRad)
+        
+        handlePath.addQuadCurve(to: leftPoint, controlPoint: CGPoint(x: newX, y: newY))
+        handlePath.addLine(to: endPoint)
+        handlePath.addLine(to: rightPoint)
+        
+        handleShape.path = handlePath.cgPath
+        handleShape.anchorPoint = centerPoint
+        handleShape.path = handlePath.cgPath
+        
+        layer.addSublayer(handleShape)
         
         absStartTime = CFAbsoluteTimeGetCurrent()
+        
         displayLink = CADisplayLink(target: self, selector: #selector(updateHandle(_:)))
         displayLink?.add(to: RunLoop.main, forMode: RunLoop.Mode.common)
     }
@@ -493,10 +593,12 @@ public final class GDGaugeView: UIView {
             
             let xOffset = abs(cos(baseRad)) * size.width * 0.5
             let yOffset = abs(sin(baseRad)) * size.height * 0.5
+            
             let textPadding = CGFloat(5.0)
             let textOffset = sqrt(xOffset * xOffset + yOffset * yOffset) + textPadding
             let textCenter = CGPoint(x: cos(-baseRad) * textOffset + endPoint.x,
                                      y: sin(-baseRad) * textOffset + endPoint.y)
+            
             let textRect = CGRect(x: textCenter.x - size.width * 0.5,
                                   y: textCenter.y - size.height * 0.5,
                                   width: size.width,
@@ -609,3 +711,4 @@ extension UIImage {
         }
     }
 }
+
